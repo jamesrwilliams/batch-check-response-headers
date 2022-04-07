@@ -1,0 +1,15 @@
+{
+  "options": {
+    "show_only_failures": true
+  },
+  "url": "",
+  "subdomains": [],
+  "variations": [],
+  "expectedHeaders": [
+    "permissions-policy",
+    "x-frame-options",
+    "x-content-type-options",
+    "strict-transport-security",
+    "referrer-policy"
+  ]
+}
