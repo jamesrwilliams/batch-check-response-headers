@@ -28,7 +28,7 @@ Take the following `config.json` as an example:
   ],
   "expectedHeaders": [
     "permissions-policy"
-  }
+  ]
 }
 ```
 
