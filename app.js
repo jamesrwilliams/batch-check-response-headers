@@ -1,18 +1,19 @@
 const axios = require('axios');
 
 try {
-  const { expectedHeaders, variations, subdomains, url, options } = require('./config.json');
+  const { urls, expectedHeaders: headers } = require('./config.js');
 
-  const { show_only_failures: ONLY_SHOW_FAILS } = options;
+  // Normalise header names
+  const expectedHeaders = headers.map((elm) => elm.toLowerCase());
+
+  console.log('\n');
+  console.log(`Starting header monitor for ${urls.length} URLs, looking for the following ${expectedHeaders.length} headers:`);
+  console.log(expectedHeaders.join(', '));
 
   const fetchPromises = [];
 
-  const modifiers = ["", ...variations];
-
-  subdomains.forEach((subdomain) => {
-    modifiers.forEach((modifier) => {
-      fetchPromises.push(axios.get(`https://${subdomain}.${modifier}${url}`));
-    });
+  urls.forEach((url) => {
+    fetchPromises.push(axios.get(url));
   });
 
   const output = {};
@@ -21,28 +22,52 @@ try {
     results.forEach((response) => {
       const { request: {host, protocol}, headers } = response;
 
-      const allFound = expectedHeaders.some(r=> Object.keys(headers).indexOf(r) >= 0);
+      // Filter our expected array with headers provided by the request. This will leave us with
+      // the headers we're missing.
+      const missing = [...expectedHeaders].filter((elm) => Object.keys(headers).indexOf(elm) === -1);
 
-      if (ONLY_SHOW_FAILS) {
-        if(allFound === false) {
-          output[`${protocol}//${host}`] = {
-            headers: Object.keys(headers)
-          }
-        }
-      } else {
-        output[`${protocol}//${host}`] = {
-          'All Headers Found': allFound,
-          headers: Object.keys(headers)
-        }
+      output[`${protocol}//${host}`] = {
+        missing: missing,
+        hasAll: missing.length === 0,
+        headers: Object.keys(headers)
       }
     });
-  }).finally(() => {
-    console.table(output);
+  }).finally(async () => {
+    console.log('\nResults:\n');
+
+    const missingCounts = {
+      all: 0,
+      some: 0,
+      none: 0
+    }
+
+    for (const [key, {missing}] of Object.entries(output)) {
+
+      const breakdown = `${missing.length}/${expectedHeaders.length}`;
+
+      if(missing.length === 0) {
+        missingCounts.none++;
+      } else if(missing.length === expectedHeaders.length) {
+        console.log(`🔴 ${key} is missing all expected headers.`);
+        missingCounts.all++;
+      } else {
+        missingCounts.some++;
+        console.log(`${key} is missing ${breakdown} expected headers:`);
+        console.log(missing.join('\n') + '\n');
+      }
+    }
+
+    console.log(`\nTotals: ${Object.entries(missingCounts).map(([status, count]) => `${status}: ${count}`).join(', ')}`);
+
+  }).catch((err) => {
+    console.log(err);
   });
 
+  return;
+
 } catch (e) {
-  if(e.message.indexOf(`Cannot find module './config.json'`) !== -1) {
-    console.log('Error: Cannot find a config.json file in the script directory.');
+  if(e.message.indexOf(`Cannot find module './config.js'`) !== -1) {
+    console.log('Error: Cannot find a ./config.js file in the script directory.');
   } else {
     console.log(e);
   }
